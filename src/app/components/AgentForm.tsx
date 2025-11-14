@@ -1,21 +1,30 @@
 "use client";
 
-import { useState } from "react";
-import { Button, Input, Card, Spin, Alert } from "antd";
+import { Button, Input, Card, Alert } from "antd";
 import { SendOutlined } from "@ant-design/icons";
-import { ApiService, OpenAPI } from "../../api";
+import { useFormStatus } from "react-dom";
 import styles from "./AgentForm.module.scss";
+import { callAgentAction } from "./actions";
+import { useState } from "react";
 
-interface AgentResponse {
-  result?: string;
-  error?: string;
-}
-
-export default function AgentForm() {
-  const [query, setQuery] = useState("");
-  const [response, setResponse] = useState<AgentResponse | null>(null);
+function SubmitButton() {
   const [loading, setLoading] = useState(false);
 
+  return (
+    <Button
+      type="primary"
+      htmlType="submit"
+      icon={<SendOutlined />}
+      onClick={() => setLoading(true)}
+    ></Button>
+  );
+}
+
+export default function AgentForm({
+  searchParams: { query, response, error },
+}: {
+  searchParams: { query?: string; response?: string; error?: string };
+}) {
   const renderConversation = (result: string) => {
     try {
       const parsed: { responses: string[] } = JSON.parse(result);
@@ -57,53 +66,24 @@ export default function AgentForm() {
     );
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!query.trim()) return;
-
-    setLoading(true);
-    setResponse(null);
-
-    try {
-      const result = await ApiService.agentEndpointApiAgentPost(query);
-      console.log("Agent result:", result);
-      setResponse({ result: JSON.stringify(result, null, 2) });
-    } catch (err) {
-      setResponse({
-        error: err instanceof Error ? err.message : "Unknown error",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
     <>
       <Card className="mb-6">
-        <form onSubmit={handleSubmit} className="flex gap-2">
+        <form className="flex gap-2" action={callAgentAction}>
           <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            name="query"
             placeholder="输入您的旅行查询..."
             className="flex-1"
-            disabled={loading}
+            defaultValue={query || ""}
           />
-          <Button
-            type="primary"
-            htmlType="submit"
-            loading={loading}
-            icon={<SendOutlined />}
-            disabled={!query.trim() || loading}
-          >
-            发送
-          </Button>
+          <SubmitButton />
         </form>
       </Card>
 
-      {response?.error && (
+      {error && (
         <Alert
           message="错误"
-          description={response.error}
+          description={error}
           type="error"
           showIcon
           className="mb-6"
@@ -111,17 +91,14 @@ export default function AgentForm() {
       )}
 
       {loading && (
-        <Card className="mb-6">
-          <div className="flex items-center justify-center py-8">
-            <Spin size="large" />
-            <span className="ml-3">正在处理您的查询...</span>
-          </div>
+        <Card title="加载中..." className="mb-6">
+          正在处理您的请求，请稍候...
         </Card>
       )}
 
-      {response?.result && !loading && (
+      {response && (
         <Card title="代理响应" className="mb-6">
-          {renderConversation(response.result)}
+          {renderConversation(response)}
         </Card>
       )}
     </>
