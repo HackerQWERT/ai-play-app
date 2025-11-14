@@ -6,9 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "gen:api": "powershell -Command \"$env:NODE_TLS_REJECT_UNAUTHORIZED=0; pnpm exec openapi --input http://127.0.0.1:8000/openapi.json --output ./src/api --client fetch\"",
     "lint": "eslint"
   },
   "dependencies": {
+    "@ant-design/icons": "^6.1.0",
     "antd": "^5.28.1",
     "next": "16.0.1",
     "next-swagger-doc": "^0.4.1",
@@ -24,6 +26,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.0.1",
     "openapi-typescript-codegen": "^0.29.0",
+    "sass": "^1.94.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

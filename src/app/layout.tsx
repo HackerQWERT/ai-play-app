@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import "./globals.css";
+import "./globals.scss";
 import "antd/dist/reset.css";
 
 export const metadata: Metadata = {

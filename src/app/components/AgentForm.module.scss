@@ -1,0 +1,43 @@
+/* AgentForm 组件样式 */
+
+.conversationContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.messageBubble {
+  max-width: 20rem;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.messageRole {
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+  text-transform: capitalize;
+}
+
+.userMessage {
+  composes: messageBubble;
+  background-color: #3b82f6;
+  color: white;
+  align-self: flex-end;
+}
+
+.supervisorMessage {
+  composes: messageBubble;
+  background-color: #10b981;
+  color: white;
+  align-self: flex-start;
+}
+
+.otherMessage {
+  composes: messageBubble;
+  background-color: #e5e7eb;
+  color: #1f2937;
+  align-self: flex-start;
+}
