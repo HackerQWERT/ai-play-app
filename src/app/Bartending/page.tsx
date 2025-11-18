@@ -1,11 +1,11 @@
-"use client";
+"use server";
 
-import { Typography } from "antd";
+import Title from "antd/es/typography/Title"; // 无需解构
 
-export default function BartendingPage() {
+export default async function BartendingPage() {
   return (
     <div>
-      <Typography.Title>AI 调酒师</Typography.Title>
+      <Title>AI 调酒师</Title>
     </div>
   );
 }
