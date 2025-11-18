@@ -5,26 +5,19 @@ import { SendOutlined } from "@ant-design/icons";
 import { useFormStatus } from "react-dom";
 import styles from "./AgentForm.module.scss";
 import { callAgentAction } from "./actions";
+import ServerCom from "./serverCom";
 import { useState } from "react";
-
-function SubmitButton() {
-  const [loading, setLoading] = useState(false);
-
-  return (
-    <Button
-      type="primary"
-      htmlType="submit"
-      icon={<SendOutlined />}
-      onClick={() => setLoading(true)}
-    ></Button>
-  );
-}
+import { ApiService, OpenAPI } from "@/api";
+import { useAgentStore } from "../stores/AgentStore";
 
 export default function AgentForm({
   searchParams: { query, response, error },
 }: {
   searchParams: { query?: string; response?: string; error?: string };
 }) {
+  console.log("AgentForm 重新渲染");
+  const { loading, data, setData, setLoading } = useAgentStore();
+
   const renderConversation = (result: string) => {
     try {
       const parsed: { responses: string[] } = JSON.parse(result);
@@ -68,18 +61,36 @@ export default function AgentForm({
 
   return (
     <>
+      <ServerCom />
       <Card className="mb-6">
-        <form className="flex gap-2" action={callAgentAction}>
+        <form className="flex gap-2">
           <Input
             name="query"
             placeholder="输入您的旅行查询..."
             className="flex-1"
             defaultValue={query || ""}
           />
-          <SubmitButton />
+          <Button
+            type="primary"
+            icon={<SendOutlined />}
+            onClick={() => {
+              setLoading(true);
+              OpenAPI.BASE = "http://localhost:8000";
+              ApiService.agentEndpointApiAgentPost(query || "")
+                .then((r) => {
+                  setData(r);
+                  console.log(r);
+                })
+                .finally(() => setLoading(false));
+            }}
+          ></Button>
         </form>
       </Card>
-
+      {loading && (
+        <Card className="mb-6">
+          <div>加载中，请稍候...</div>
+        </Card>
+      )}
       {error && (
         <Alert
           message="错误"
@@ -89,18 +100,22 @@ export default function AgentForm({
           className="mb-6"
         />
       )}
-
-      {loading && (
-        <Card title="加载中..." className="mb-6">
-          正在处理您的请求，请稍候...
+      {data && (
+        <Card title="代理响应" className="mb-6">
+          {(data || response).responses.map(
+            (message: string, index: number) => (
+              <div key={index} className={styles.otherMessage}>
+                {message}
+              </div>
+            )
+          )}
         </Card>
       )}
-
-      {response && (
+      {/* {response && (
         <Card title="代理响应" className="mb-6">
           {renderConversation(response)}
         </Card>
-      )}
+      )} */}
     </>
   );
 }

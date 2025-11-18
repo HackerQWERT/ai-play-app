@@ -10,7 +10,6 @@ export async function callAgentAction(formData: FormData) {
         redirect(`/agent?error=${encodeURIComponent("Query is required")}`);
     }
 
-    OpenAPI.BASE = "http://localhost:8000";
 
     let result;
     try {

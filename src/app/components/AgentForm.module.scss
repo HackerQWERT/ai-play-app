@@ -22,21 +22,21 @@
 }
 
 .userMessage {
-  composes: messageBubble;
+  @extend .messageBubble;
   background-color: #3b82f6;
   color: white;
   align-self: flex-end;
 }
 
 .supervisorMessage {
-  composes: messageBubble;
+  @extend .messageBubble;
   background-color: #10b981;
   color: white;
   align-self: flex-start;
 }
 
 .otherMessage {
-  composes: messageBubble;
+  @extend .messageBubble;
   background-color: #e5e7eb;
   color: #1f2937;
   align-self: flex-start;

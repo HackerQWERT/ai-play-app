@@ -6,6 +6,10 @@ export default async function AgentPage({
 }: {
   searchParams: Promise<{ query?: string; response?: string; error?: string }>;
 }) {
+  const isServer = typeof window === "undefined";
+  // console.log("page:" + isServer ? "SSR: 服务器端渲染" : "CSR: 客户端渲染");
+  console.log("page 重新渲染");
+
   const resolvedParams = await searchParams;
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
