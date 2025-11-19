@@ -2,21 +2,22 @@
 
 import { Button, Input, Card, Alert } from "antd";
 import { SendOutlined } from "@ant-design/icons";
-import { useFormStatus } from "react-dom";
 import styles from "./AgentForm.module.scss";
-import { callAgentAction } from "./actions";
-import ServerCom from "./serverCom";
-import { useState } from "react";
-import { ApiService, OpenAPI } from "@/api";
-import { useAgentStore } from "../stores/AgentStore";
+import { callAgentAction } from "../../server/actions";
+// import ServerCom from "./serverCom";
+import { useState, useTransition } from "react";
+import { useAgentStore } from "../../stores/AgentStore";
 
 export default function AgentForm({
-  searchParams: { query, response, error },
+  searchParams: { query, response, error: errorParam },
 }: {
   searchParams: { query?: string; response?: string; error?: string };
 }) {
   console.log("AgentForm 重新渲染");
-  const { loading, data, setData, setLoading } = useAgentStore();
+  const { data, setData } = useAgentStore();
+  const [isPending, startTransition] = useTransition();
+  const [inputValue, setInputValue] = useState(query || "");
+  const [error, setError] = useState<string | null>(errorParam || null);
 
   const renderConversation = (result: string) => {
     try {
@@ -61,32 +62,40 @@ export default function AgentForm({
 
   return (
     <>
-      <ServerCom />
+      {/* <ServerCom /> */}
       <Card className="mb-6">
         <form className="flex gap-2">
           <Input
             name="query"
             placeholder="输入您的旅行查询..."
             className="flex-1"
-            defaultValue={query || ""}
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
           />
           <Button
             type="primary"
             icon={<SendOutlined />}
+            loading={isPending}
             onClick={() => {
-              setLoading(true);
-              OpenAPI.BASE = "http://localhost:8000";
-              ApiService.agentEndpointApiAgentPost(query || "")
-                .then((r) => {
-                  setData(r);
-                  console.log(r);
-                })
-                .finally(() => setLoading(false));
+              if (!inputValue.trim()) return;
+              setError(null);
+              startTransition(async () => {
+                const formData = new FormData();
+                formData.append("query", inputValue);
+                const result = await callAgentAction(formData);
+                if (result.error) {
+                  setError(result.error);
+                } else {
+                  setData(result.data);
+                }
+              });
             }}
-          ></Button>
+          >
+            发送
+          </Button>
         </form>
       </Card>
-      {loading && (
+      {isPending && (
         <Card className="mb-6">
           <div>加载中，请稍候...</div>
         </Card>
@@ -102,20 +111,13 @@ export default function AgentForm({
       )}
       {data && (
         <Card title="代理响应" className="mb-6">
-          {(data || response).responses.map(
-            (message: string, index: number) => (
-              <div key={index} className={styles.otherMessage}>
-                {message}
-              </div>
-            )
-          )}
+          {data.responses.map((message: string, index: number) => (
+            <div key={index} className={styles.otherMessage}>
+              {message}
+            </div>
+          ))}
         </Card>
       )}
-      {/* {response && (
-        <Card title="代理响应" className="mb-6">
-          {renderConversation(response)}
-        </Card>
-      )} */}
     </>
   );
 }
