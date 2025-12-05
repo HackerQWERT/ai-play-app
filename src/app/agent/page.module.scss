@@ -7,7 +7,6 @@
 }
 
 .header {
-    background-color: white;
     border-bottom: 1px solid #e5e7eb;
     box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     height: auto !important;
@@ -25,13 +24,13 @@
 
   .title {
     font-weight: 700;
-    color: #1f2937;
+    color: white;
   }
 
   .subtitle {
     display: block;
     font-size: 0.875rem;
-    color: #6b7280;
+    color: white !important;
     margin-top: 0.125rem;
   }
 }

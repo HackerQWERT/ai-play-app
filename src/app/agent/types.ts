@@ -1,58 +1,34 @@
-// 后端 SSE 事件类型
+// 定义后端返回的事件结构
 export type AgentEvent =
-    | MessageEvent
-    | ToolCallEvent
-    | ToolResultEvent;
-
-export interface MessageEvent {
-    event: "message";
-    agent: string;
-    data: string;
-}
-
-export interface ToolCallEvent {
-    event: "tool_call";
-    agent: string;
-    data: {
-        name: string;
-        args: Record<string, any>;
-        id: string;
+    | {
+        event: "delta";
+        data: string; // delta 的 data 是直接的字符串
+    }
+    | {
+        event: "tool_call";
+        data: {
+            name: string;
+            inputs: any;
+        };
+    }
+    | {
+        event: "tool_result";
+        data: {
+            name: string;
+            content: string;
+            status: string;
+        };
+    }
+    | {
+        event: "error";
+        data: any;
     };
-}
 
-export interface ToolResultEvent {
-    event: "tool_result";
-    agent: string;
-    data: {
-        name: string;
-        result: string;
-        tool_call_id: string;
-    };
-}
-
-// 前端消息类型
 export interface ChatMessage {
     id: string;
     role: "user" | "assistant";
     content: string;
     timestamp: Date;
-    agent?: string;
-    toolCalls?: ToolCall[];
-    toolResults?: ToolResult[];
+    toolCalls?: Array<{ name: string; status: "calling" | "done" }>; // 用于在UI上显示正在调用工具
     isStreaming?: boolean;
-}
-
-export interface ToolCall {
-    id: string;
-    name: string;
-    args: Record<string, any>;
-    agent: string;
-}
-
-export interface ToolResult {
-    id: string;
-    name: string;
-    result: string;
-    agent: string;
-    toolCallId: string;
 }
