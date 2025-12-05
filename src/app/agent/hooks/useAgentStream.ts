@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
-import { ChatMessage, AgentEvent } from "../types"; // 确保引入了上面定义的类型
+import { ChatMessage, AgentEvent } from "../types";
 
 export function useAgentStream(apiEndpoint: string) {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -30,7 +30,7 @@ export function useAgentStream(apiEndpoint: string) {
                 role: "assistant",
                 content: "",
                 timestamp: new Date(),
-                toolCalls: [], // 初始化工具调用列表
+                toolCalls: [],
                 isStreaming: true,
             };
 
@@ -41,13 +41,14 @@ export function useAgentStream(apiEndpoint: string) {
             abortControllerRef.current = abortController;
 
             try {
-                // 注意：这里已经按你之前的修改，去掉了外层的 { messages: ... } 包裹，直接发数组
                 const response = await fetch(apiEndpoint, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
                     },
+                    // 确保这里发送的是数组，匹配你后端的定义
                     body: JSON.stringify({ messages: [...messages, userMessage] }),
+
                     signal: abortController.signal,
                 });
 
@@ -56,7 +57,7 @@ export function useAgentStream(apiEndpoint: string) {
 
                 const reader = response.body.getReader();
                 const decoder = new TextDecoder();
-                let buffer = ""; // 添加 buffer 处理跨包截断的情况
+                let buffer = "";
 
                 while (true) {
                     const { done, value } = await reader.read();
@@ -65,9 +66,9 @@ export function useAgentStream(apiEndpoint: string) {
                     const chunk = decoder.decode(value, { stream: true });
                     buffer += chunk;
 
-                    // SSE 消息通常以双换行符分隔
+                    // 处理粘包：以双换行符分隔 SSE 消息
                     const lines = buffer.split("\n\n");
-                    // 保留最后一个可能不完整的片段在 buffer 中
+                    // 保留最后一个可能不完整的片段
                     buffer = lines.pop() || "";
 
                     for (const line of lines) {
@@ -80,37 +81,57 @@ export function useAgentStream(apiEndpoint: string) {
                         try {
                             const parsedEvent: AgentEvent = JSON.parse(dataStr);
 
-                            // === 核心修改：根据新的 event 类型进行分发 ===
                             switch (parsedEvent.event) {
                                 case "delta":
-                                    // 处理文本流：直接追加字符串
                                     if (currentMessageRef.current) {
                                         currentMessageRef.current.content += parsedEvent.data;
-                                        // 强制触发 React 重渲染
                                         setMessages((prev) => [...prev]);
                                     }
                                     break;
 
                                 case "tool_call":
-                                    // 处理工具调用开始：可以在 UI 上显示 "正在查询酒店..."
                                     if (currentMessageRef.current) {
                                         const toolName = parsedEvent.data.name;
                                         const newToolCall = { name: toolName, status: "calling" as const };
 
                                         const existingTools = currentMessageRef.current.toolCalls || [];
-                                        currentMessageRef.current.toolCalls = [...existingTools, newToolCall];
-                                        setMessages((prev) => [...prev]);
+                                        // 简单去重：如果最后一个工具就是这个名字且正在调用，就不重复添加
+                                        const lastTool = existingTools[existingTools.length - 1];
+                                        if (lastTool && lastTool.name === toolName && lastTool.status === 'calling') {
+                                            // pass
+                                        } else {
+                                            currentMessageRef.current.toolCalls = [...existingTools, newToolCall];
+                                            setMessages((prev) => [...prev]);
+                                        }
                                     }
                                     break;
 
                                 case "tool_result":
-                                    // 处理工具调用结束
                                     if (currentMessageRef.current) {
-                                        const toolName = parsedEvent.data.name;
-                                        // 更新对应工具的状态为 done
+                                        let toolName = parsedEvent.data.name;
+
+                                        // === 核心修复 1: 提取 Command 对象中的工具名 ===
+                                        if (!toolName && (parsedEvent.data as any).type === 'Command') {
+                                            // 尝试从 update.messages 里的 tool 消息获取 name
+                                            const msgs = (parsedEvent.data as any).update?.messages;
+                                            if (Array.isArray(msgs)) {
+                                                const toolMsg = msgs.find((m: any) => m.type === 'tool' || m.name);
+                                                if (toolMsg) toolName = toolMsg.name;
+                                            }
+                                        }
+
+                                        // === 核心修复 2: 模糊匹配兜底 ===
+                                        // 如果还是没名字，就找列表中第一个还在 loading 的工具
+                                        if (!toolName && currentMessageRef.current.toolCalls) {
+                                            const callingTool = currentMessageRef.current.toolCalls.find(t => t.status === 'calling');
+                                            if (callingTool) toolName = callingTool.name;
+                                        }
+
+                                        // 更新状态
                                         if (currentMessageRef.current.toolCalls) {
                                             currentMessageRef.current.toolCalls = currentMessageRef.current.toolCalls.map(t =>
-                                                t.name === toolName ? { ...t, status: "done" } : t
+                                                // 如果名字匹配，或者找不到名字(兜底全部设为done)，则更新状态
+                                                (t.name === toolName || !toolName) ? { ...t, status: "done" } : t
                                             );
                                             setMessages((prev) => [...prev]);
                                         }
@@ -131,13 +152,11 @@ export function useAgentStream(apiEndpoint: string) {
                 if (error.name === "AbortError") return;
                 console.error("Stream error:", error);
 
-                // 错误处理：在消息中显示错误提示
                 setMessages((prev) => {
                     const newMessages = [...prev];
                     const lastMessage = newMessages[newMessages.length - 1];
                     if (lastMessage.role === "assistant") {
-                        lastMessage.isStreaming = false;
-                        lastMessage.content += "\n[连接中断，请重试]";
+                        lastMessage.content += "\n[连接异常，请重试]";
                     }
                     return newMessages;
                 });
@@ -145,12 +164,25 @@ export function useAgentStream(apiEndpoint: string) {
                 setIsLoading(false);
                 abortControllerRef.current = null;
 
-                // 结束流状态
+                // === 核心修复 3: 强制清理所有状态 ===
                 setMessages((prev) => {
                     const newMessages = [...prev];
                     const lastMessage = newMessages[newMessages.length - 1];
+
                     if (lastMessage?.role === "assistant") {
                         lastMessage.isStreaming = false;
+
+                        // 1. 强制结束所有还在转圈的工具
+                        if (lastMessage.toolCalls) {
+                            lastMessage.toolCalls = lastMessage.toolCalls.map(t =>
+                                t.status === 'calling' ? { ...t, status: 'done' } : t
+                            );
+                        }
+
+                        // 2. 移除末尾的 "FINISH"
+                        if (lastMessage.content && lastMessage.content.endsWith("FINISH")) {
+                            lastMessage.content = lastMessage.content.replace(/FINISH$/, "");
+                        }
                     }
                     return newMessages;
                 });
@@ -165,6 +197,21 @@ export function useAgentStream(apiEndpoint: string) {
             abortControllerRef.current = null;
         }
         setIsLoading(false);
+
+        // 手动停止时也要清理状态
+        setMessages((prev) => {
+            const newMessages = [...prev];
+            const lastMessage = newMessages[newMessages.length - 1];
+            if (lastMessage?.role === "assistant") {
+                lastMessage.isStreaming = false;
+                if (lastMessage.toolCalls) {
+                    lastMessage.toolCalls = lastMessage.toolCalls.map(t =>
+                        t.status === 'calling' ? { ...t, status: 'done' } : t
+                    );
+                }
+            }
+            return newMessages;
+        });
     }, []);
 
     const clearMessages = useCallback(() => {
