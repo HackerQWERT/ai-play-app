@@ -3,13 +3,14 @@
 import { useRef, useEffect, useState } from "react";
 import { useAgentStream } from "./hooks/useAgentStream";
 import { ChatMessage } from "./components/ChatMessage";
+import { ApprovalCard } from "./components/ApprovalCard"; // 引入新组件
 import {
   SendOutlined,
   CloseOutlined,
   DeleteOutlined,
   BulbOutlined,
 } from "@ant-design/icons";
-import { Layout, Button, Input, Typography, Space, Card } from "antd";
+import { Layout, Button, Input, Typography, Space, message } from "antd";
 import styles from "./page.module.scss";
 
 const { Header, Content, Footer } = Layout;
@@ -19,30 +20,46 @@ const { Title, Text, Paragraph } = Typography;
 export default function AgentPage() {
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  // Input.TextArea 的 ref 类型不同，这里简化处理，或者使用 any
   const inputRef = useRef<any>(null);
 
-  // 使用 SSE Hook (需要配置你的后端地址)
   const API_ENDPOINT =
     process.env.NEXT_PUBLIC_API_ENDPOINT ||
     "http://localhost:8000/api/agent/vibe/stream";
-  const { messages, isLoading, sendMessage, stopStream, clearMessages } =
-    useAgentStream(API_ENDPOINT);
 
-  // 自动滚动到底部
+  const {
+    messages,
+    isLoading,
+    isWaitingForApproval, // 获取等待状态
+    sendMessage,
+    stopStream,
+    clearMessages,
+  } = useAgentStream(API_ENDPOINT);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, isWaitingForApproval]); // 状态变化也滚动
 
   const handleSubmit = () => {
     if (!input.trim() || isLoading) return;
-
     sendMessage(input.trim());
     setInput("");
+  };
+
+  // 点击“确认”按钮
+  const handleConfirm = () => {
+    // 发送肯定指令，后端接收后会 Resume
+    sendMessage("确认，请继续执行。", true);
+  };
+
+  // 点击“修改”按钮
+  const handleModify = () => {
+    // 这里简单地让输入框获得焦点，提示用户输入
+    inputRef.current?.focus();
+    message.info("请在输入框中输入您的修改意见");
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -54,7 +71,7 @@ export default function AgentPage() {
 
   return (
     <Layout className={styles.pageContainer}>
-      {/* Header */}
+      {/* Header (保持不变) */}
       <Header className={styles.header}>
         <div className={styles.headerContent}>
           <div>
@@ -71,7 +88,6 @@ export default function AgentPage() {
               danger
               icon={<DeleteOutlined />}
               onClick={clearMessages}
-              title="清空对话"
             >
               清空
             </Button>
@@ -79,18 +95,16 @@ export default function AgentPage() {
         </div>
       </Header>
 
-      {/* Messages Container */}
+      {/* Messages */}
       <Content className={styles.messagesContainer}>
         <div className={styles.messagesContent}>
           {messages.length === 0 ? (
             <div className={styles.emptyState}>
+              {/* (Empty state 内容保持不变) */}
               <div className={styles.emoji}>🌍</div>
               <Title level={3} className={styles.emptyTitle}>
                 开始你的旅行计划
               </Title>
-              <Paragraph type="secondary" className={styles.emptyDesc}>
-                我可以帮你预订机票、酒店、门票,制定行程,查询天气等。试试问我：
-              </Paragraph>
               <div className={styles.examplesGrid}>
                 {[
                   "帮我预订从北京到上海的机票",
@@ -103,13 +117,13 @@ export default function AgentPage() {
                     onClick={() => setInput(example)}
                     className={styles.exampleButton}
                     icon={<BulbOutlined />}
+                    block
                     style={{
                       height: "auto",
                       padding: "12px",
                       textAlign: "left",
                       justifyContent: "flex-start",
                     }}
-                    block
                   >
                     {example}
                   </Button>
@@ -121,6 +135,15 @@ export default function AgentPage() {
               {messages.map((message) => (
                 <ChatMessage key={message.id} message={message} />
               ))}
+
+              {/* 🟢 关键：如果处于等待确认状态，显示确认卡片 */}
+              {isWaitingForApproval && (
+                <ApprovalCard
+                  onConfirm={handleConfirm}
+                  onModify={handleModify}
+                />
+              )}
+
               <div ref={messagesEndRef} />
             </div>
           )}
@@ -135,9 +158,14 @@ export default function AgentPage() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="输入你的旅行需求... (Shift+Enter 换行)"
+            // 🟢 如果正在等待确认，修改 placeholder 提示
+            placeholder={
+              isWaitingForApproval
+                ? "请输入修改意见，或点击上方确认按钮..."
+                : "输入你的旅行需求... (Shift+Enter 换行)"
+            }
             autoSize={{ minRows: 1, maxRows: 4 }}
-            disabled={isLoading}
+            disabled={isLoading} // 只有 loading 时禁用，等待确认时允许输入(用于修改)
             style={{ resize: "none", flex: 1 }}
           />
           {isLoading ? (

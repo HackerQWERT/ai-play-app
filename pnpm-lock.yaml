@@ -20,6 +20,9 @@ importers:
       antd:
         specifier: ^5.28.1
         version: 5.28.1(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
       lucide-react:
         specifier: ^0.555.0
         version: 0.555.0(react@19.2.0)
