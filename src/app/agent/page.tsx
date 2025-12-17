@@ -127,9 +127,9 @@ export default function AgentPage() {
               </Title>
               <div className={styles.examplesGrid}>
                 {[
-                  "帮我预订从北京到上海的机票",
-                  "查询我的所有酒店预订",
-                  "11月25日纽约的天气怎么样?",
+                  "上海到东京有规划吗",
+                  "能给我旅行推荐吗",
+                  "下周五纽约的天气怎么样?",
                   "推荐巴黎的旅游景点",
                 ].map((example, i) => (
                   <Button
