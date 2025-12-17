@@ -9,8 +9,9 @@ import {
   CloseOutlined,
   DeleteOutlined,
   BulbOutlined,
+  LoadingOutlined,
 } from "@ant-design/icons";
-import { Layout, Button, Input, Typography } from "antd";
+import { Layout, Button, Input, Typography, Spin } from "antd";
 import styles from "./page.module.scss";
 
 const { Header, Content, Footer } = Layout;
@@ -161,15 +162,13 @@ export default function AgentPage() {
 
               {/* 状态提示 */}
               {statusMessage && (
-                <div
-                  style={{
-                    padding: "12px",
-                    textAlign: "center",
-                    color: "#888",
-                    fontStyle: "italic",
-                  }}
-                >
-                  {statusMessage}
+                <div className={styles.statusIndicator}>
+                  <Spin
+                    indicator={
+                      <LoadingOutlined style={{ fontSize: 18 }} spin />
+                    }
+                  />
+                  <span>{statusMessage}</span>
                 </div>
               )}
 

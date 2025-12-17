@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import clsx from "clsx";
 import { ChatMessage as ChatMessageType } from "../types";
 import {
@@ -12,6 +12,34 @@ import styles from "./ChatMessage.module.scss";
 
 const { Text } = Typography;
 
+// 打字机效果 Hook
+const useTypewriter = (text: string, speed = 10, initialText = "") => {
+  const [displayedText, setDisplayedText] = useState(initialText);
+
+  useEffect(() => {
+    // 如果已经显示完整，或者 text 为空，不做处理
+    if (displayedText.length === text.length) return;
+
+    // 如果 text 变短了（异常情况），直接同步
+    if (text.length < displayedText.length) {
+      setDisplayedText(text);
+      return;
+    }
+
+    // 动态调整速度：如果落后太多，加速
+    const remaining = text.length - displayedText.length;
+    const currentSpeed = remaining > 50 ? 5 : speed;
+
+    const timeout = setTimeout(() => {
+      setDisplayedText((prev) => text.slice(0, prev.length + 1));
+    }, currentSpeed);
+
+    return () => clearTimeout(timeout);
+  }, [text, displayedText, speed]);
+
+  return displayedText;
+};
+
 interface ChatMessageProps {
   message: ChatMessageType;
   onOpenModal?: () => void;
@@ -22,6 +50,14 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   onOpenModal,
 }) => {
   const isUser = message.role === "user";
+
+  // 仅对正在流式传输或新生成的 Assistant 消息启用打字机
+  // 如果是历史消息（!isStreaming），则直接显示全文
+  const displayedContent = useTypewriter(
+    message.content,
+    1,
+    isUser || !message.isStreaming ? message.content : ""
+  );
 
   const renderControlStatus = () => {
     if (!message.control) return null;
@@ -89,7 +125,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             isUser ? styles.user : styles.assistant
           )}
         >
-          {message.content ? (
+          {displayedContent ? (
             <div className={styles.textContent}>
               <ReactMarkdown
                 components={{
@@ -98,7 +134,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
                   ),
                 }}
               >
-                {message.content}
+                {displayedContent}
               </ReactMarkdown>
             </div>
           ) : (
