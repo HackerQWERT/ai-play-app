@@ -3,36 +3,44 @@
 import { useRef, useEffect, useState } from "react";
 import { useAgentStream } from "./hooks/useAgentStream";
 import { ChatMessage } from "./components/ChatMessage";
-import { ApprovalCard } from "./components/ApprovalCard"; // 引入新组件
+import { InteractionModal } from "./components/InteractionModal";
 import {
   SendOutlined,
   CloseOutlined,
   DeleteOutlined,
   BulbOutlined,
 } from "@ant-design/icons";
-import { Layout, Button, Input, Typography, Space, message } from "antd";
+import { Layout, Button, Input, Typography } from "antd";
 import styles from "./page.module.scss";
 
 const { Header, Content, Footer } = Layout;
 const { TextArea } = Input;
-const { Title, Text, Paragraph } = Typography;
+const { Title, Text } = Typography;
 
 export default function AgentPage() {
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<any>(null);
 
+  // Modal 状态
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [activeControl, setActiveControl] = useState<{
+    type: "select_plan" | "select_flight" | "select_hotel";
+    options: any[];
+  } | null>(null);
+
   const API_ENDPOINT =
     process.env.NEXT_PUBLIC_API_ENDPOINT ||
-    "http://localhost:8000/api/agent/vibe/stream";
+    "http://localhost:8000/api/vibe/stream";
 
   const {
     messages,
     isLoading,
-    isWaitingForApproval, // 获取等待状态
+    statusMessage,
     sendMessage,
     stopStream,
     clearMessages,
+    handleControlInteraction,
   } = useAgentStream(API_ENDPOINT);
 
   const scrollToBottom = () => {
@@ -41,25 +49,25 @@ export default function AgentPage() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, isWaitingForApproval]); // 状态变化也滚动
+  }, [messages, statusMessage]);
+
+  // 监听消息变化，自动打开 Modal
+  useEffect(() => {
+    const lastMessage = messages[messages.length - 1];
+    if (
+      lastMessage?.role === "assistant" &&
+      lastMessage.control &&
+      !lastMessage.control.isInteracted
+    ) {
+      setActiveControl(lastMessage.control);
+      setIsModalOpen(true);
+    }
+  }, [messages]);
 
   const handleSubmit = () => {
     if (!input.trim() || isLoading) return;
     sendMessage(input.trim());
     setInput("");
-  };
-
-  // 点击“确认”按钮
-  const handleConfirm = () => {
-    // 发送肯定指令，后端接收后会 Resume
-    sendMessage("确认，请继续执行。", true);
-  };
-
-  // 点击“修改”按钮
-  const handleModify = () => {
-    // 这里简单地让输入框获得焦点，提示用户输入
-    inputRef.current?.focus();
-    message.info("请在输入框中输入您的修改意见");
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -69,9 +77,21 @@ export default function AgentPage() {
     }
   };
 
+  const handleModalConfirm = (value: string, displayText: string) => {
+    setIsModalOpen(false);
+    handleControlInteraction(value, displayText);
+  };
+
+  const handleOpenModal = (control: any) => {
+    if (control && !control.isInteracted) {
+      setActiveControl(control);
+      setIsModalOpen(true);
+    }
+  };
+
   return (
     <Layout className={styles.pageContainer}>
-      {/* Header (保持不变) */}
+      {/* Header */}
       <Header className={styles.header}>
         <div className={styles.headerContent}>
           <div>
@@ -100,7 +120,6 @@ export default function AgentPage() {
         <div className={styles.messagesContent}>
           {messages.length === 0 ? (
             <div className={styles.emptyState}>
-              {/* (Empty state 内容保持不变) */}
               <div className={styles.emoji}>🌍</div>
               <Title level={3} className={styles.emptyTitle}>
                 开始你的旅行计划
@@ -133,15 +152,25 @@ export default function AgentPage() {
           ) : (
             <div>
               {messages.map((message) => (
-                <ChatMessage key={message.id} message={message} />
+                <ChatMessage
+                  key={message.id}
+                  message={message}
+                  onOpenModal={() => handleOpenModal(message.control)}
+                />
               ))}
 
-              {/* 🟢 关键：如果处于等待确认状态，显示确认卡片 */}
-              {isWaitingForApproval && (
-                <ApprovalCard
-                  onConfirm={handleConfirm}
-                  onModify={handleModify}
-                />
+              {/* 状态提示 */}
+              {statusMessage && (
+                <div
+                  style={{
+                    padding: "12px",
+                    textAlign: "center",
+                    color: "#888",
+                    fontStyle: "italic",
+                  }}
+                >
+                  {statusMessage}
+                </div>
               )}
 
               <div ref={messagesEndRef} />
@@ -149,6 +178,14 @@ export default function AgentPage() {
           )}
         </div>
       </Content>
+
+      {/* Interaction Modal */}
+      <InteractionModal
+        open={isModalOpen}
+        control={activeControl}
+        onCancel={() => setIsModalOpen(false)}
+        onConfirm={handleModalConfirm}
+      />
 
       {/* Input Area */}
       <Footer className={styles.inputWrapper} style={{ padding: 0 }}>
@@ -158,14 +195,9 @@ export default function AgentPage() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            // 🟢 如果正在等待确认，修改 placeholder 提示
-            placeholder={
-              isWaitingForApproval
-                ? "请输入修改意见，或点击上方确认按钮..."
-                : "输入你的旅行需求... (Shift+Enter 换行)"
-            }
+            placeholder="输入你的旅行需求... (Shift+Enter 换行)"
             autoSize={{ minRows: 1, maxRows: 4 }}
-            disabled={isLoading} // 只有 loading 时禁用，等待确认时允许输入(用于修改)
+            disabled={isLoading}
             style={{ resize: "none", flex: 1 }}
           />
           {isLoading ? (
