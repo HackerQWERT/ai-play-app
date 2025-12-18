@@ -25,8 +25,8 @@ export function useAgentStream(apiEndpoint: string) {
     }, []);
 
     const sendMessage = useCallback(
-        async (query: string, displayQuery?: string) => {
-            if (!query.trim() || isLoading) return;
+        async (query: string, displayQuery?: string, forceIgnoreLoading = false) => {
+            if (!query.trim() || (isLoading && !forceIgnoreLoading)) return;
 
             // 1. 添加用户消息
             const userMessage: ChatMessage = {
@@ -171,6 +171,7 @@ export function useAgentStream(apiEndpoint: string) {
     }, [stopStream]);
 
     const handleControlInteraction = useCallback((interactionResult: string, displayResult?: string) => {
+        // 先标记为已交互
         setMessages(prev => {
             const newMessages = [...prev];
             const lastMessage = newMessages[newMessages.length - 1];
@@ -179,7 +180,9 @@ export function useAgentStream(apiEndpoint: string) {
             }
             return newMessages;
         });
-        sendMessage(interactionResult, displayResult);
+
+        // 强制发送，忽略 isLoading 检查（因为 control 事件时流可能还未完全结束）
+        sendMessage(interactionResult, displayResult, true);
     }, [sendMessage]);
 
     return {

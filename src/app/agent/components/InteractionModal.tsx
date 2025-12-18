@@ -165,7 +165,7 @@ export const InteractionModal: React.FC<InteractionModalProps> = ({
       onCancel={onCancel}
       footer={null}
       width={800}
-      destroyOnClose
+      destroyOnHidden
     >
       {renderContent()}
     </Modal>
